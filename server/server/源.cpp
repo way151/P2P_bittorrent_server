@@ -1,7 +1,7 @@
 /* TCPServer.cpp - main */
 
 #include <cstdlib>
-#include <cstring>
+#include <string.h>
 #include <vector>
 #include <stdio.h>
 #include <winsock2.h>
@@ -42,8 +42,8 @@ map<string, vector<node> > file_tab;
 struct struparam {             /* 用于带入参数 */
 	int threadno;            /* 线程编号 */
 	SOCKET sock;
-	unsigned int ip;
-	//char buf_ip[BUFLEN];
+	string ip;
+	char buf_ip[BUFLEN];
 
 };
 SOCKET ssock[MAXSOC];
@@ -60,11 +60,8 @@ unsigned __stdcall func(void * p)    // 用结构变量或全局变量带入参数
 
 	struct struparam p1 = *((struct struparam *)p);  //why its wrong when using pointer??? 
 
-
 	while (1)
 	{
-		memset(buf_s, 0, sizeof(buf_s));
-		memset(buf_r, 0, sizeof(buf_r));
 		int cc = recv(p1.sock, buf_r, BUFLEN, 0);
 		if (cc == SOCKET_ERROR || cc == 0)
 		{
@@ -74,10 +71,9 @@ unsigned __stdcall func(void * p)    // 用结构变量或全局变量带入参数
 		}
 		else if (cc > 0)
 		{
-			printf("%s\n", buf_r);
+			printf("%s", buf_r);
 			if (!strcmp(buf_r, "0")) {
-				printf("In the 0 oper!\n");
-				char fname[MAXLEN] = {'\0'};
+				char fname[MAXLEN];
 				int ee = recv(p1.sock, fname, MAXLEN, 0);
 				if (ee == SOCKET_ERROR || ee == 0) {
 					int keyy = GetLastError();
@@ -85,7 +81,7 @@ unsigned __stdcall func(void * p)    // 用结构变量或全局变量带入参数
 					break;
 				}
 				else {
-					char port[MAXLEN] = {'\0'};
+					char port[MAXLEN];
 					int dd = recv(p1.sock, port, MAXLEN, 0);
 					if (dd == SOCKET_ERROR || dd == 0) {
 						int keyy = GetLastError();
@@ -96,7 +92,8 @@ unsigned __stdcall func(void * p)    // 用结构变量或全局变量带入参数
 						string fn = fname;
 						node Node;
 						Node.port = port;
-						Node.ip = std::to_string(p1.ip);
+						Node.ip = p1.ip;
+
 						if (file_tab.count(fn)) {
 							file_tab[fn].push_back(Node);
 						}
@@ -110,8 +107,7 @@ unsigned __stdcall func(void * p)    // 用结构变量或全局变量带入参数
 				}
 			}
 			else if (!strcmp(buf_r, "1")) {
-				printf("In the 1 oper!\n");
-				char fname[MAXLEN] = {'\0'};
+				char fname[MAXLEN];
 				int ee = recv(p1.sock, fname, MAXLEN, 0);
 				if (ee == SOCKET_ERROR || ee == 0) {
 					int keyy = GetLastError();
@@ -133,23 +129,22 @@ unsigned __stdcall func(void * p)    // 用结构变量或全局变量带入参数
 						strcpy(buf_s, "cannot find the file.\n");
 					}
 					int sendc = send(p1.sock, buf_s, strlen(buf_s), 0);
-					if ((sendc == SOCKET_ERROR || sendc == 0 )&& strlen(buf_s)) {
+					if (sendc == SOCKET_ERROR || sendc == 0) {
 						int keyy = GetLastError();
 						printf("Erremor: %d.\n", keyy);     //出错。其后必须关闭套接字sock。
 						break;
 					}
 				}
 			}
-			else if (!strcmp(buf_r, "2")) {
-				printf("In the 2 oper!\n");
+			else if (!strcmp(buf_r, "2")){
 				map<string, vector<node> >::iterator it;
 				it = file_tab.begin();
 				while (it != file_tab.end())
 				{
 					vector<node>::iterator jt;
-					for (jt = (it->second).begin(); jt != (it->second).end(); ) {
-						if ((*jt).ip == std::to_string(p1.ip)) {
-							jt = (it->second).erase(jt);
+					for (jt = (it->second).begin; jt != (it->second).end; ) {
+						if ((*jt).ip == p1.ip) {
+							(it->second).erase(jt);
 						}
 						else
 							jt++;
@@ -157,28 +152,27 @@ unsigned __stdcall func(void * p)    // 用结构变量或全局变量带入参数
 					it++;
 				}
 			}
-			else {
-				printf("Wrong oper!\n");
-			}
 		}
+		memset(buf_s, 0, sizeof(buf_s));
+		memset(buf_r, 0, sizeof(buf_r));
 	}
 	(void)closesocket(p1.sock);
 	LeaveCriticalSection(&cs);
 	return 0;
 }
 
-int main(int argc, char *argv[])
+void main(int argc, char *argv[])
 /* argc: 命令行参数个数， 例如：C:\> TCPServer 8080
 					 argc=2 argv[0]="TCPServer",argv[1]="8080" */
 {
 	struct	sockaddr_in fsin;	    /* the from address of a client	  */
 	SOCKET	msock;		    /* master & slave sockets	      */
 	WSADATA wsadata;
-	char	service[10] = {'\0'};
+	char	*service = "10086";
 	struct  sockaddr_in sin;	    /* an Internet endpoint address		*/
 	int	    alen;			        /* from-address length		        */
 
-	strcpy(service, "10086");
+
 	WSAStartup(WSVERS, &wsadata);						// 加载winsock library。WSVERS指明请求使用的版本。wsadata返回系统实际支持的最高版本
 	msock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);	// 创建套接字，参数：因特网协议簇(family)，流套接字，TCP协议
 														// 返回：要监听套接字的描述符或INVALID_SOCKET
@@ -191,7 +185,7 @@ int main(int argc, char *argv[])
 
 	listen(msock, 5);                                   // 等待建立连接的队列长度为5
 
-	printf("Start!!\n");
+	printf("服务器，启动！\n");
 	while (1) { 		                             // 检测是否有按键
 		alen = sizeof(struct sockaddr);                   // 取到地址结构的长度
 		int i = 0;
@@ -211,7 +205,7 @@ int main(int argc, char *argv[])
 		//send2all();
 		p1.threadno = i;
 		p1.sock = ssock[i];
-		p1.ip = ippre.S_un.S_addr;
+		p1.ip = std::to_string(ippre.S_un.S_addr);
 		//ptr1 = &p1;
 		//hThread = (HANDLE)_beginthreadex(NULL, 0,&func, (void *)ptr1, 0, &threadID);
 		hThread = (HANDLE)_beginthreadex(NULL, 0, &func, (void *)&p1, 0, &threadID);
